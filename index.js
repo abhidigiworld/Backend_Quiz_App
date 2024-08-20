@@ -136,11 +136,9 @@ app.delete('/api/users/:id', async (req, res) => {
 app.put('/api/users/:id', async (req, res) => {
     const { id } = req.params;
     const { name, email, userType } = req.body;
-    console.log(req.body);
     if (!name || !email || !userType) {
         return res.status(400).json({ message: 'All fields are required.' });
     }
-    console.log(req.body);
     
     try {
         const updatedUser = await User.findByIdAndUpdate(
