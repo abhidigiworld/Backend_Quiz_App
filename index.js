@@ -76,7 +76,7 @@ app.post('/login', async (req, res) => {
         const user = await User.findOne({ email });
 
         if (!user) {
-            return res.status(400).send('Invalid email or password.');
+            return res.status(400).send('Invalid User.');
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -223,6 +223,17 @@ app.get('/api/test/:testId', async (req, res) => {
     } catch (error) {
         console.error('Error fetching test:', error);
         res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Route to delete a test
+app.delete('/api/tests/:id', async (req, res) => {
+    try {
+        const testId = req.params.id;
+        await McqTest.findByIdAndDelete(testId);
+        res.status(200).send({ message: 'Test deleted successfully' });
+    } catch (error) {
+        res.status(500).send({ error: 'Error deleting test' });
     }
 });
 
