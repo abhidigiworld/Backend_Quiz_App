@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    userType: { type: String, default: 'normal user' }
+    userType: { type: String, default: 'User' }
 });
 
 const User = mongoose.model('User', userSchema);
@@ -84,16 +84,15 @@ app.post('/login', async (req, res) => {
             return res.status(400).send('Invalid password.');
         }
 
-        // Generate JWT token
         const token = jwt.sign(
-            { _id: user._id, email: user.email }, 
-            process.env.JWT_SECRET,               
-            { expiresIn: '1d' }                   
+            { _id: user._id, email: user.email, userType: user.userType }, 
+            process.env.JWT_SECRET,
+            { expiresIn: '1d' }
         );
-
+        
         res.status(200).send({
             message: 'Login successful',
-            user: { name: user.name, email: user.email },
+            user: { name: user.name, email: user.email, userType: user.userType }, 
             token, 
         });
     } catch (err) {
@@ -101,5 +100,131 @@ app.post('/login', async (req, res) => {
         res.status(500).send('Server error. Please try again.');
     }
 });
+
+
+//api to get the data 
+app.get('/api/users', async (req, res) => {
+    try {
+        const users = await User.find();
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+
+// Delete User path
+app.delete('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const deletedUser = await User.findByIdAndDelete(id);
+
+        if (!deletedUser) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        res.json({ message: 'User deleted successfully.' });
+    } catch (err) {
+        console.error('Error deleting user:', err);
+        res.status(500).json({ message: 'Server error. Please try again.' });
+    }
+});
+
+
+// Update User Route
+app.put('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, email, userType } = req.body;
+    console.log(req.body);
+    if (!name || !email || !userType) {
+        return res.status(400).json({ message: 'All fields are required.' });
+    }
+    console.log(req.body);
+    
+    try {
+        const updatedUser = await User.findByIdAndUpdate(
+            id,
+            { name, email, userType },
+            { new: true } 
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        res.json(updatedUser);
+    } catch (err) {
+        console.error('Error updating user:', err);
+        res.status(500).json({ message: 'Server error. Please try again.' });
+    }
+});
+
+
+// Define the MCQ Test schema
+const mcqTestSchema = new mongoose.Schema({
+    testName: { type: String, unique: true, required: true },
+    questions: [
+        {
+            question: { type: String, required: true },
+            options: { type: [String], required: true },
+            correctAnswer: { type: String, required: true }
+        }
+    ],
+    expiryTime: { type: Date, required: true }
+});
+
+const McqTest = mongoose.model('McqTest', mcqTestSchema);
+
+// Route to create a new test
+app.post('/api/tests', async (req, res) => {
+    const { testName, questions, expiryTime } = req.body;
+
+    try {
+        const newTest = new McqTest({ testName, questions, expiryTime });
+        await newTest.save();
+        res.status(201).json({ message: 'Test created successfully!' });
+    } catch (error) {
+        console.error('Error creating test:', error);
+        res.status(500).json({ message: 'Failed to create test' });
+    }
+});
+
+
+// Get all tests route
+app.get('/api/tests', async (req, res) => {
+    try {
+        const tests = await McqTest.find();
+        res.json(tests);
+    } catch (error) {
+        console.error('Error fetching tests:', error);
+        res.status(500).json({ message: 'Failed to fetch tests' });
+    }
+});
+
+app.get('/api/student-tests', async (req, res) => {
+    try {
+        const tests = await McqTest.find(); 
+        res.json(tests);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error. Please try again.' });
+    }
+});
+
+
+// GET endpoint to fetch a specific test by testId
+app.get('/api/test/:testId', async (req, res) => {
+    try {
+        const test = await McqTest.findById(req.params.testId);
+        if (!test) {
+            return res.status(404).json({ message: 'Test not found' });
+        }
+        res.json(test);
+    } catch (error) {
+        console.error('Error fetching test:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 
 app.listen(port, () => console.log(`Server is running on port ${port}`));
