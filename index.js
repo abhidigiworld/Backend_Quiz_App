@@ -246,7 +246,6 @@ const studentScoreSchema = new mongoose.Schema({
 
 const StudentScore = mongoose.model('StudentScore', studentScoreSchema);
 
-// API to handle test submission for the scoring 
 app.post('/api/submittest/:testId', async (req, res) => {
     const { testId } = req.params;
     const { answers, email } = req.body;
@@ -273,10 +272,13 @@ app.post('/api/submittest/:testId', async (req, res) => {
         // Calculate the score and prepare answer strings
         let score = 0;
         const answerStrings = answers.map((answerIndex, index) => {
-            if (test.questions[index].correctAnswer === answerIndex) {
+            const correctAnswer = test.questions[index].correctAnswer;
+            const selectedAnswer = test.questions[index].options[answerIndex];
+            
+            if (correctAnswer === selectedAnswer) {
                 score++;
             }
-            return test.questions[index].options[answerIndex]; // Convert index to answer string
+            return selectedAnswer; 
         });
 
         // Save the score and answers in StudentScore schema
@@ -290,7 +292,7 @@ app.post('/api/submittest/:testId', async (req, res) => {
 
         await studentScore.save();
 
-        // Respond with the score
+        // Respond with the score 
         res.status(200).json({ score });
 
     } catch (error) {
@@ -298,6 +300,7 @@ app.post('/api/submittest/:testId', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
 
 // API to get all tests attempted by the user
 app.get('/api/student-testss', async (req, res) => {
