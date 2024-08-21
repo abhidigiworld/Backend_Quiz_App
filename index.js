@@ -235,5 +235,95 @@ app.delete('/api/tests/:id', async (req, res) => {
     }
 });
 
+// StudentScore Schema
+const studentScoreSchema = new mongoose.Schema({
+    testId: { type: mongoose.Schema.Types.ObjectId, ref: 'McqTest', required: true },
+    testName: { type: String, required: true },
+    email: { type: String, required: true },
+    score: { type: Number, required: true },
+    answers: { type: [String], required: true }
+});
+
+const StudentScore = mongoose.model('StudentScore', studentScoreSchema);
+
+// API to handle test submission for the scoring 
+app.post('/api/submittest/:testId', async (req, res) => {
+    const { testId } = req.params;
+    const { answers, email } = req.body;
+
+    try {
+        // Verify JWT token
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ message: 'Unauthorized: No token provided' });
+        }
+
+        const token = authHeader.split(' ')[1];
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+        if (decodedToken.email !== email) {
+            return res.status(403).json({ message: 'Forbidden: Invalid user' });
+        }
+
+        // Find the test
+        const test = await McqTest.findById(testId);
+        if (!test) {
+            return res.status(404).json({ message: 'Test not found' });
+        }
+
+        // Calculate the score and prepare answer strings
+        let score = 0;
+        const answerStrings = answers.map((answerIndex, index) => {
+            if (test.questions[index].correctAnswer === answerIndex) {
+                score++;
+            }
+            return test.questions[index].options[answerIndex]; // Convert index to answer string
+        });
+
+        // Save the score and answers in StudentScore schema
+        const studentScore = new StudentScore({
+            testId,
+            testName: test.testName,
+            email,
+            score,
+            answers: answerStrings
+        });
+
+        await studentScore.save();
+
+        // Respond with the score
+        res.status(200).json({ score });
+
+    } catch (error) {
+        console.error('Error submitting test:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// API to get all tests attempted by the user
+app.get('/api/student-testss', async (req, res) => {
+    console.log("working");
+    
+    try {
+        // Verify JWT token
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ message: 'Unauthorized: No token provided' });
+        }
+
+        const token = authHeader.split(' ')[1];
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+        const email = decodedToken.email;
+
+        // Find all tests attempted by the user and select specific fields
+        const attemptedTests = await StudentScore.find({ email }).select('testId testName score');
+
+        res.status(200).json(attemptedTests);
+    } catch (error) {
+        console.error('Error fetching tests:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+
 
 app.listen(port, () => console.log(`Server is running on port ${port}`));
